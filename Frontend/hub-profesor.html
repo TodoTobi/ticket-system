@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PC Forum — Hub Profesor</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Damage description block ── */
+    .danio-block {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,.25);
+      border-left: 3px solid var(--danger);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      margin-bottom: .25rem;
+    }
+    .danio-block.warn-block {
+      background: var(--warn-bg);
+      border-color: rgba(245,158,11,.25);
+      border-left-color: var(--warn);
+    }
+    .danio-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: .4rem;
+    }
+    .danio-text {
+      font-size: .83rem; color: var(--text2); line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .danio-edit-area {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .65rem .8rem;
+      color: var(--text); font-size: .83rem; font-family: var(--font);
+      resize: vertical; min-height: 72px; line-height: 1.5;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .danio-edit-area:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+    .danio-required-notice {
+      background: rgba(239,68,68,.08);
+      border: 1px dashed rgba(239,68,68,.4);
+      border-radius: var(--radius);
+      padding: .6rem .85rem;
+      font-size: .8rem; color: #fca5a5;
+      margin-bottom: .75rem;
+    }
+    /* Alerta de PCs dañadas en el inicio */
+    .alert-banner {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,.3);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius);
+      padding: .85rem 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+    .alert-banner.warn-banner {
+      background: var(--warn-bg);
+      border-color: rgba(245,158,11,.3);
+      border-left-color: var(--warn);
+    }
+    .alert-banner-title {
+      font-size: .78rem; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--danger); margin-bottom: .5rem;
+    }
+    .alert-banner.warn-banner .alert-banner-title { color: var(--warn); }
+    .alert-pc-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .alert-pc-chip {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25);
+      border-radius: 99px; padding: .25rem .65rem;
+      font-size: .75rem; font-weight: 600; color: #f87171;
+      cursor: pointer; transition: all .15s;
+      font-family: var(--mono);
+    }
+    .alert-pc-chip:hover { background: rgba(239,68,68,.2); }
+    .alert-pc-chip.warn-chip {
+      background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.25); color: #fbbf24;
+    }
+    .alert-pc-chip.warn-chip:hover { background: rgba(245,158,11,.2); }
+    /* View toggle */
+    .view-toggle {
+      display: flex; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .vt-btn {
+      padding: .35rem .85rem; font-size: .78rem; font-weight: 600;
+      color: var(--text2); background: transparent; border: none;
+      cursor: pointer; transition: all .15s; font-family: var(--font);
+    }
+    .vt-btn:hover  { background: var(--card); color: var(--text); }
+    .vt-btn.active { background: var(--accent-bg); color: var(--accent2); }
+    .vt-btn + .vt-btn { border-left: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/hub-profesor.html" class="nav-brand">🖥️ PC Forum</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-user-name" id="userName"></span>
+  <span class="nav-role" id="roleBadge"></span>
+  <button class="btn btn-ghost btn-sm" onclick="API.logout()">Salir</button>
+</nav>
+
+<div class="page-content">
+  <div class="container section">
+
+    <div class="welcome-bar">
+      Hola, <strong id="welcomeName"></strong> — Gestionás las computadoras del laboratorio: podés agregar, editar, cambiar estados y gestionar reportes.
+    </div>
+
+    <!-- Alertas de PCs críticas/con problemas al inicio -->
+    <div id="alertBanners"></div>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:.75rem;">
+      <div class="page-header" style="margin-bottom:0;">
+        <div class="page-title" id="viewTitle">Computadoras</div>
+        <div class="page-sub" id="viewSub">// hacé clic en una PC para ver detalles y reportar</div>
+      </div>
+      <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+        <div class="view-toggle">
+          <button class="vt-btn active" id="btnViewPCs"  onclick="switchView('pcs')">🖥️ PCs</button>
+          <button class="vt-btn"       id="btnViewFeed" onclick="switchView('feed')">📋 Todos los tickets</button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btnNuevaPC" onclick="showPCForm()">+ Nueva PC</button>
+      </div>
+    </div>
+
+    <!-- Formulario Nueva / Editar PC -->
+    <div class="form-box" id="pcForm">
+      <div class="form-box-head">
+        <span class="form-box-title" id="pcFormTitle">Nueva computadora</span>
+        <button class="form-close-btn" onclick="closePCForm()">✕</button>
+      </div>
+      <div class="form-grid">
+        <div class="form-group"><label>Código</label><input type="text" id="f-codigo" placeholder="PC-009" /></div>
+        <div class="form-group"><label>Nombre</label><input type="text" id="f-nombre" placeholder="Lab A — Puesto 9" /></div>
+        <div class="form-group"><label>Laboratorio</label>
+          <select id="f-lab">
+            <option value="lab_a">Laboratorio A</option>
+            <option value="lab_b">Laboratorio B</option>
+            <option value="sala">Sala de Profesores</option>
+            <option value="otros">Otros</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Estado</label>
+          <select id="f-estado" onchange="toggleDanioField()">
+            <option value="ok">Operativa</option>
+            <option value="warn">Con problemas</option>
+            <option value="danger">Crítica</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Marca</label><input type="text" id="f-marca" placeholder="HP, Dell, Lenovo…" /></div>
+        <div class="form-group"><label>Modelo</label><input type="text" id="f-modelo" placeholder="ProDesk 600 G6" /></div>
+        <div class="form-group"><label>Procesador</label><input type="text" id="f-procesador" placeholder="i5-10500" /></div>
+        <div class="form-group"><label>RAM</label><input type="text" id="f-ram" placeholder="8 GB" /></div>
+        <div class="form-group"><label>Almacenamiento</label><input type="text" id="f-disco" placeholder="256 GB SSD" /></div>
+        <div class="form-group"><label>Sistema operativo</label><input type="text" id="f-os" placeholder="Windows 11 Pro" /></div>
+      </div>
+      <!-- Campo descripción del daño — aparece solo cuando estado != ok -->
+      <div id="danioFieldWrap" style="display:none; margin-top:.75rem;">
+        <div class="form-group">
+          <label>⚠️ Descripción del problema / daño <span style="color:var(--danger);">*</span></label>
+          <textarea id="f-descripcionDanio" rows="3"
+            placeholder="Describí qué le pasa a la computadora: síntomas, cuándo empezó, qué se intentó, etc."
+            style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;color:var(--text);font-size:.85rem;width:100%;resize:vertical;font-family:var(--font);"></textarea>
+        </div>
+      </div>
+      <div class="alert alert-error" id="pcFormErr"></div>
+      <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+        <button class="btn btn-primary btn-sm" id="pcSaveBtn" onclick="savePCForm()">Guardar</button>
+        <button class="btn btn-ghost btn-sm" onclick="closePCForm()">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Vista: PC Grid -->
+    <div id="viewPCs">
+      <div class="filter-bar">
+        <input type="text" class="search-input" id="search" placeholder="Buscar por código, nombre o marca…" oninput="renderPCs()" />
+        <button class="chip active" onclick="setFilter('all',this)">Todas</button>
+        <button class="chip" onclick="setFilter('ok',this)">Operativas</button>
+        <button class="chip" onclick="setFilter('warn',this)">Con problemas</button>
+        <button class="chip" onclick="setFilter('danger',this)">Críticas</button>
+      </div>
+      <div id="loadingMsg" style="text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;">Cargando computadoras…</div>
+      <div class="pc-grid" id="pcGrid"></div>
+    </div>
+
+    <!-- Vista: Feed de todos los tickets -->
+    <div id="viewFeed" style="display:none;">
+      <div id="allTicketsFeed"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+<!-- Slide panel PC -->
+<div class="slide-panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div class="pc-num" id="pNum"></div>
+      <div class="pc-name" id="pName"></div>
+    </div>
+    <div style="display:flex; gap:.4rem; align-items:center;">
+      <button class="btn btn-ghost btn-sm" onclick="editCurrentPC()">✏️ Editar</button>
+      <button class="btn btn-danger btn-sm" id="delPCBtn" onclick="deleteCurrentPC()">🗑️ Eliminar PC</button>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <div class="specs-grid" id="pSpecs"></div>
+
+    <!-- Descripción del daño — visible siempre, editable por todos -->
+    <div id="danioSection" style="display:none; margin-top:1rem;">
+      <div class="sec-head" style="margin-top:0;">⚠️ Descripción del problema</div>
+      <div id="danioViewMode">
+        <div id="danioDisplay" class="danio-block"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem;" onclick="startEditDanio()">✏️ Editar descripción</button>
+      </div>
+      <div id="danioEditMode" style="display:none;">
+        <textarea class="danio-edit-area" id="danioEditText" placeholder="Describí el problema o daño…"></textarea>
+        <div style="display:flex;gap:.4rem;margin-top:.4rem;">
+          <button class="btn btn-primary btn-sm" onclick="saveDanio()">Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditDanio()">Cancelar</button>
+        </div>
+        <div class="inline-alert" id="danioAlert" style="margin-top:.4rem;"></div>
+      </div>
+    </div>
+
+    <div class="sec-head">Estado de la PC</div>
+    <div class="status-selector" id="statusSel"></div>
+
+    <!-- Aviso cuando se cambia a warn/danger sin descripción -->
+    <div id="danioRequiredNotice" class="danio-required-notice" style="display:none; margin-top:.75rem;">
+      ⚠️ Antes de marcar esta PC como dañada, completá la descripción del problema arriba.
+    </div>
+
+    <div class="sec-head">Nuevo reporte</div>
+    <div class="tipo-row">
+      <button class="tipo-opt active" id="t-PROBLEMA"  onclick="setTipo('PROBLEMA')">🔴 Problema</button>
+      <button class="tipo-opt"        id="t-SOLUCION"  onclick="setTipo('SOLUCION')">✅ Solución</button>
+      <button class="tipo-opt"        id="t-INFO"      onclick="setTipo('INFO')">ℹ️ Info</button>
+    </div>
+    <div class="compose">
+      <textarea id="commentText" placeholder="Describí el problema, solución o información con detalle…" maxlength="500"></textarea>
+      <div class="compose-foot">
+        <span class="char-cnt"><span id="charCount">0</span> / 500</span>
+        <button class="btn btn-primary btn-sm" id="submitBtn" onclick="submit()">Publicar</button>
+      </div>
+    </div>
+    <div class="inline-alert" id="composeAlert"></div>
+
+    <div class="sec-head" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Historial de tickets (<span id="cCount">0</span>)</span>
+    </div>
+    <div id="commentsList"></div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  const session = API.getSession();
+  if (!session || !['PROFESOR','ADMIN'].includes(session.rol)) API.logout();
+
+  document.getElementById('userName').textContent    = session.nombre;
+  document.getElementById('welcomeName').textContent = session.nombre.split(' ')[0];
+  const badge = document.getElementById('roleBadge');
+  badge.textContent = API.rolLabel(session.rol);
+  badge.className   = 'nav-role ' + API.rolClass(session.rol);
+
+  let filter = 'all', currentId = null, tipo = 'PROBLEMA', allPCs = [];
+  let editPCId = null, currentView = 'pcs';
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      allPCs = await API.getPCs();
+      document.getElementById('loadingMsg').style.display = 'none';
+      renderAlertBanners();
+      renderStats();
+      renderPCs();
+    } catch (e) {
+      document.getElementById('loadingMsg').textContent = '⚠️ Error: ' + e.message;
+    }
+  }
+
+  // ─── Alert banners: PCs críticas / con problemas ──────────────────────────
+  function renderAlertBanners() {
+    const banners = document.getElementById('alertBanners');
+    const criticas = allPCs.filter(p => p.estado === 'danger');
+    const conProblemas = allPCs.filter(p => p.estado === 'warn');
+
+    let html = '';
+
+    if (criticas.length) {
+      html += `<div class="alert-banner">
+        <div class="alert-banner-title">🔴 ${criticas.length} computadora${criticas.length > 1 ? 's' : ''} en estado crítico</div>
+        <div class="alert-pc-list">
+          ${criticas.map(p => `<span class="alert-pc-chip" onclick="openPanel(${p.id})">${p.codigo} — ${p.nombre}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    if (conProblemas.length) {
+      html += `<div class="alert-banner warn-banner">
+        <div class="alert-banner-title">⚠️ ${conProblemas.length} computadora${conProblemas.length > 1 ? 's' : ''} con problemas</div>
+        <div class="alert-pc-list">
+          ${conProblemas.map(p => `<span class="alert-pc-chip warn-chip" onclick="openPanel(${p.id})">${p.codigo} — ${p.nombre}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    banners.innerHTML = html;
+  }
+
+  // ─── Vista toggle ─────────────────────────────────────────────────────────
+  async function switchView(v) {
+    currentView = v;
+    document.getElementById('viewPCs').style.display  = v === 'pcs'  ? '' : 'none';
+    document.getElementById('viewFeed').style.display = v === 'feed' ? '' : 'none';
+    document.getElementById('btnNuevaPC').style.display = v === 'pcs' ? '' : 'none';
+    document.getElementById('btnViewPCs').classList.toggle('active',  v === 'pcs');
+    document.getElementById('btnViewFeed').classList.toggle('active', v === 'feed');
+
+    if (v === 'feed') {
+      document.getElementById('viewTitle').textContent = 'Todos los tickets';
+      document.getElementById('viewSub').textContent   = '// historial completo de reportes';
+      await renderFeed();
+    } else {
+      document.getElementById('viewTitle').textContent = 'Computadoras';
+      document.getElementById('viewSub').textContent   = '// hacé clic en una PC para ver detalles y reportar';
+    }
+  }
+
+  async function renderFeed() {
+    const container = document.getElementById('allTicketsFeed');
+    container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--text3);font-size:.85rem;">Cargando…</div>`;
+    try {
+      const tickets = await API.getAllTickets();
+      if (!tickets.length) {
+        container.innerHTML = `<div class="empty"><span>📋</span>Sin tickets aún.</div>`; return;
+      }
+      container.innerHTML = tickets.map(t => {
+        const isProf = ['PROFESOR','ADMIN'].includes(t.creadoPor?.rol);
+        return `<div class="comment" style="margin-bottom:.5rem;">
+          <div class="comment-head">
+            <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${API.avatar(t.creadoPor?.nombre)}</div>
+            <span class="comment-name">${t.creadoPor?.nombre ?? 'Usuario'}</span>
+            <span class="comment-tag ${API.tipoClass(t.titulo)}">${API.tipoLabel(t.titulo)}</span>
+            <span class="comment-tag" style="margin-left:.2rem;font-family:var(--mono);">${t.computadora?.codigo ?? '—'}</span>
+            <span class="comment-time">${API.formatDate(t.fechaCreacion)}</span>
+            <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="delTicketFeed(${t.id},this)">Eliminar</button>
+          </div>
+          <div class="comment-body">${t.descripcion}</div>
+        </div>`;
+      }).join('');
+    } catch(e) {
+      container.innerHTML = `<div class="empty"><span>⚠️</span>Error al cargar tickets.</div>`;
+    }
+  }
+
+  async function delTicketFeed(id, btn) {
+    if (!confirm('¿Eliminar este ticket?')) return;
+    btn.disabled = true;
+    try {
+      await API.deleteTicket(id);
+      await renderFeed();
+    } catch(e) { alert('Error: ' + e.message); btn.disabled = false; }
+  }
+
+  // ─── Stats ────────────────────────────────────────────────────────────────
+  function renderStats() {
+    const s = API.stats(allPCs);
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box"><div class="stat-num">${s.total}</div><div class="stat-lbl">Total PCs</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--ok)">${s.ok}</div><div class="stat-lbl">Operativas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${s.warn}</div><div class="stat-lbl">Con problemas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${s.danger}</div><div class="stat-lbl">Críticas</div></div>
+    `;
+  }
+
+  // ─── Filtros / Grid ───────────────────────────────────────────────────────
+  function setFilter(f, btn) {
+    filter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderPCs();
+  }
+
+  function renderPCs() {
+    const q = document.getElementById('search').value.toLowerCase();
+    let pcs = allPCs;
+    if (filter !== 'all') pcs = pcs.filter(p => p.estado === filter);
+    if (q) pcs = pcs.filter(p => (p.codigo + p.nombre + (p.marca||'')).toLowerCase().includes(q));
+
+    const grid = document.getElementById('pcGrid');
+    if (!pcs.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span>🔍</span>No se encontraron PCs.</div>`;
+      return;
+    }
+    grid.innerHTML = pcs.map(pc => {
+      const cnt = pc._count?.tickets ?? 0;
+      return `<div class="pc-card pc-${pc.estado}" onclick="openPanel(${pc.id})">
+        <div class="pc-num">${pc.codigo}</div>
+        <div class="pc-name">${pc.nombre}</div>
+        <div class="pc-spec">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}<br>${pc.procesador || ''}</div>
+        ${pc.estado !== 'ok' && pc.descripcionDanio ? `<div class="pc-spec" style="color:#fca5a5;font-size:.72rem;margin-top:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚠️ ${pc.descripcionDanio}</div>` : ''}
+        <div class="pc-footer">
+          <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
+          <span class="pc-comment-count">${cnt} ticket${cnt !== 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ─── Formulario PC ────────────────────────────────────────────────────────
+  function toggleDanioField() {
+    const estado = document.getElementById('f-estado').value;
+    const wrap   = document.getElementById('danioFieldWrap');
+    wrap.style.display = (estado === 'ok') ? 'none' : 'block';
+  }
+
+  function showPCForm(pc = null) {
+    editPCId = pc ? pc.id : null;
+    document.getElementById('pcFormTitle').textContent = pc ? `Editar ${pc.codigo}` : 'Nueva computadora';
+    document.getElementById('f-codigo').value          = pc?.codigo           ?? '';
+    document.getElementById('f-nombre').value          = pc?.nombre           ?? '';
+    document.getElementById('f-marca').value           = pc?.marca            ?? '';
+    document.getElementById('f-modelo').value          = pc?.modelo           ?? '';
+    document.getElementById('f-procesador').value      = pc?.procesador       ?? '';
+    document.getElementById('f-ram').value             = pc?.ram              ?? '';
+    document.getElementById('f-disco').value           = pc?.disco            ?? '';
+    document.getElementById('f-os').value              = pc?.os               ?? '';
+    document.getElementById('f-lab').value             = pc?.lab              ?? 'lab_a';
+    document.getElementById('f-estado').value          = pc?.estado           ?? 'ok';
+    document.getElementById('f-descripcionDanio').value = pc?.descripcionDanio ?? '';
+    document.getElementById('pcFormErr').classList.remove('show');
+    toggleDanioField();
+    document.getElementById('pcForm').classList.add('show');
+    if (!pc) document.getElementById('f-codigo').focus();
+  }
+
+  function closePCForm() {
+    document.getElementById('pcForm').classList.remove('show');
+    editPCId = null;
+  }
+
+  async function savePCForm() {
+    const estado = document.getElementById('f-estado').value;
+    const descripcionDanio = document.getElementById('f-descripcionDanio').value.trim();
+    const err = document.getElementById('pcFormErr');
+    err.classList.remove('show');
+
+    const data = {
+      codigo:           document.getElementById('f-codigo').value.trim(),
+      nombre:           document.getElementById('f-nombre').value.trim(),
+      marca:            document.getElementById('f-marca').value.trim(),
+      modelo:           document.getElementById('f-modelo').value.trim(),
+      procesador:       document.getElementById('f-procesador').value.trim(),
+      ram:              document.getElementById('f-ram').value.trim(),
+      disco:            document.getElementById('f-disco').value.trim(),
+      os:               document.getElementById('f-os').value.trim(),
+      lab:              document.getElementById('f-lab').value,
+      estado,
+      descripcionDanio,
+    };
+
+    if (!data.codigo || !data.nombre) {
+      err.textContent = 'Código y nombre son obligatorios.';
+      err.classList.add('show'); return;
+    }
+    if ((estado === 'warn' || estado === 'danger') && !descripcionDanio) {
+      err.textContent = 'Debés describir el problema o daño antes de guardar en este estado.';
+      err.classList.add('show'); return;
+    }
+
+    const btn = document.getElementById('pcSaveBtn');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      if (editPCId) await API.updatePC(editPCId, data);
+      else          await API.addPC(data);
+      closePCForm();
+      allPCs = await API.getPCs();
+      renderAlertBanners();
+      renderStats();
+      renderPCs();
+    } catch (e) {
+      err.textContent = e.message;
+      err.classList.add('show');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar';
+    }
+  }
+
+  // ─── Slide panel ──────────────────────────────────────────────────────────
+  async function openPanel(id) {
+    currentId = id;
+    const pc = allPCs.find(p => p.id === id);
+
+    document.getElementById('pNum').textContent  = pc.codigo;
+    document.getElementById('pName').textContent = pc.nombre;
+    document.getElementById('pSpecs').innerHTML  = [
+      ['Laboratorio',    API.labLabel(pc.lab)],
+      ['Marca / Modelo', [pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'],
+      ['Procesador',     pc.procesador || '—'],
+      ['RAM',            pc.ram || '—'],
+      ['Almacenamiento', pc.disco || '—'],
+      ['Sistema op.',    pc.os || '—'],
+    ].map(([k,v]) => `<div class="spec-row"><div class="spec-key">${k}</div><div class="spec-val">${v}</div></div>`).join('');
+
+    renderDanioSection(pc);
+    renderStatusSel(pc.estado);
+    document.getElementById('danioRequiredNotice').style.display = 'none';
+    document.getElementById('commentText').value  = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('composeAlert').className = 'inline-alert';
+    setTipo('PROBLEMA');
+
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+    await loadComments();
+  }
+
+  function renderDanioSection(pc) {
+    const section = document.getElementById('danioSection');
+    if (pc.estado === 'ok') {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    const display = document.getElementById('danioDisplay');
+    display.className = `danio-block${pc.estado === 'warn' ? ' warn-block' : ''}`;
+
+    if (pc.descripcionDanio && pc.descripcionDanio.trim()) {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text">${pc.descripcionDanio}</div>`;
+    } else {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text" style="color:var(--text3);font-style:italic;">Sin descripción todavía. Usá el botón de editar para agregar detalles.</div>`;
+    }
+
+    document.getElementById('danioEditText').value = pc.descripcionDanio ?? '';
+    cancelEditDanio();
+  }
+
+  function startEditDanio()  {
+    document.getElementById('danioViewMode').style.display = 'none';
+    document.getElementById('danioEditMode').style.display = 'block';
+    document.getElementById('danioEditText').focus();
+  }
+  function cancelEditDanio() {
+    document.getElementById('danioViewMode').style.display = 'block';
+    document.getElementById('danioEditMode').style.display = 'none';
+    document.getElementById('danioAlert').className = 'inline-alert';
+  }
+
+  async function saveDanio() {
+    const text = document.getElementById('danioEditText').value.trim();
+    const al   = document.getElementById('danioAlert');
+    al.className = 'inline-alert';
+    try {
+      const updated = await API.updateDescripcionDanio(currentId, text);
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0) allPCs[idx].descripcionDanio = text;
+      renderDanioSection(allPCs[idx]);
+      renderPCs();
+    } catch(e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    }
+  }
+
+  function closePanel() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+    currentId = null;
+  }
+
+  function editCurrentPC() {
+    const pc = allPCs.find(p => p.id === currentId);
+    if (!pc) return;
+    closePanel();
+    showPCForm(pc);
+  }
+
+  async function deleteCurrentPC() {
+    const pc = allPCs.find(p => p.id === currentId);
+    if (!pc) return;
+    if (!confirm(`¿Eliminar ${pc.codigo}? Se eliminarán también todos sus tickets asociados.`)) return;
+    const btn = document.getElementById('delPCBtn');
+    btn.disabled = true;
+    try {
+      await API.deletePC(currentId);
+      closePanel();
+      allPCs = await API.getPCs();
+      renderAlertBanners();
+      renderStats();
+      renderPCs();
+    } catch(e) {
+      alert('Error: ' + e.message);
+      btn.disabled = false;
+    }
+  }
+
+  // ─── Estado PC ────────────────────────────────────────────────────────────
+  function renderStatusSel(current) {
+    const opts = [['ok','✅ Operativa'],['warn','⚠️ Con problemas'],['danger','🔴 Crítica']];
+    document.getElementById('statusSel').innerHTML = opts.map(([val, lbl]) =>
+      `<button class="status-opt ${current === val ? 'sel-'+val : ''}" onclick="changeEstado('${val}')">${lbl}</button>`
+    ).join('');
+  }
+
+  async function changeEstado(estado) {
+    const pc = allPCs.find(p => p.id === currentId);
+
+    // Si va a warn/danger y no hay descripción, mostrar aviso y no cambiar
+    if ((estado === 'warn' || estado === 'danger') && !(pc?.descripcionDanio?.trim())) {
+      document.getElementById('danioRequiredNotice').style.display = 'block';
+      // Abrir automáticamente el editor de descripción
+      document.getElementById('danioSection').style.display = 'block';
+      startEditDanio();
+      return;
+    }
+
+    document.getElementById('danioRequiredNotice').style.display = 'none';
+
+    try {
+      await API.updatePC(currentId, { estado });
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0) allPCs[idx].estado = estado;
+      renderStatusSel(estado);
+      renderDanioSection(allPCs[idx]);
+      renderPCs();
+      renderStats();
+      renderAlertBanners();
+    } catch (e) {
+      alert('Error al cambiar estado: ' + e.message);
+    }
+  }
+
+  // ─── Tipo de ticket ───────────────────────────────────────────────────────
+  function setTipo(t) {
+    tipo = t;
+    ['PROBLEMA','SOLUCION','INFO'].forEach(opt =>
+      document.getElementById('t-' + opt).classList.toggle('active', opt === t)
+    );
+    // Cambiar placeholder según tipo
+    const placeholders = {
+      PROBLEMA: 'Describí el problema con detalle: síntomas, cuándo empezó, qué probaste…',
+      SOLUCION: 'Describí la solución aplicada o propuesta: pasos realizados, resultado…',
+      INFO:     'Agregá información relevante sobre esta PC o situación…',
+    };
+    document.getElementById('commentText').placeholder = placeholders[t] || '';
+  }
+
+  document.getElementById('commentText').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+  });
+
+  // ─── Publicar ticket ──────────────────────────────────────────────────────
+  async function submit() {
+    const text = document.getElementById('commentText').value.trim();
+    const al   = document.getElementById('composeAlert');
+    const btn  = document.getElementById('submitBtn');
+    al.className = 'inline-alert';
+
+    if (!text || text.length < 5) {
+      al.textContent = 'Escribí al menos 5 caracteres.';
+      al.className = 'inline-alert err show'; return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Publicando…';
+    try {
+      await API.createTicket({ titulo: tipo, descripcion: text, computadoraId: currentId });
+      document.getElementById('commentText').value    = '';
+      document.getElementById('charCount').textContent = '0';
+      al.textContent = '✓ Publicado correctamente.';
+      al.className = 'inline-alert ok show';
+      setTimeout(() => al.classList.remove('show'), 2500);
+
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0 && allPCs[idx]._count)
+        allPCs[idx]._count.tickets = (allPCs[idx]._count.tickets ?? 0) + 1;
+      renderPCs();
+      // FIX: recargar historial inmediatamente tras publicar
+      await loadComments();
+    } catch (e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Publicar';
+    }
+  }
+
+  // ─── Cargar tickets del panel ─────────────────────────────────────────────
+  async function loadComments() {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = `<div style="padding:1rem 0;color:var(--text3);font-size:.8rem;font-family:var(--mono);">Cargando…</div>`;
+    try {
+      const tickets = await API.getTicketsByPC(currentId);
+      document.getElementById('cCount').textContent = tickets.length;
+      if (!tickets.length) {
+        list.innerHTML = `<div class="empty"><span>💬</span>Sin tickets aún.</div>`; return;
+      }
+      list.innerHTML = [...tickets].reverse().map(t => {
+        const isProf = ['PROFESOR','ADMIN'].includes(t.creadoPor?.rol);
+        return `<div class="comment">
+          <div class="comment-head">
+            <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${API.avatar(t.creadoPor?.nombre)}</div>
+            <span class="comment-name">${t.creadoPor?.nombre ?? 'Usuario'}</span>
+            <span class="comment-tag ${API.tipoClass(t.titulo)}">${API.tipoLabel(t.titulo)}</span>
+            <span class="comment-time">${API.formatDate(t.fechaCreacion)}</span>
+            <button class="btn btn-danger btn-sm" style="margin-left:auto;" onclick="delTicket(${t.id}, this)">✕</button>
+          </div>
+          <div class="comment-body">${t.descripcion}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty"><span>⚠️</span>Error al cargar.</div>`;
+    }
+  }
+
+  async function delTicket(id, btn) {
+    if (!confirm('¿Eliminar este ticket?')) return;
+    btn.disabled = true;
+    try {
+      await API.deleteTicket(id);
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0 && allPCs[idx]._count && allPCs[idx]._count.tickets > 0)
+        allPCs[idx]._count.tickets--;
+      renderPCs();
+      await loadComments();
+    } catch(e) {
+      alert('Error: ' + e.message);
+      btn.disabled = false;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>
